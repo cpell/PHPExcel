@@ -1657,6 +1657,50 @@ class PHPExcel_Calculation_Financial {
 
 		return $result;
 	}	//	function PRICE()
+	
+	/**
+	 * Yield function ported from openoffice
+	 **/
+	public static function YIELDFunction($settlement, $maturity, $rate, $pr, $redemption, $frequency, $basis = 0) {
+	        $settlement = PHPExcel_Calculation_Functions::flattenSingleValue($settlement);
+	        $maturity = PHPExcel_Calculation_Functions::flattenSingleValue($maturity);
+	        $rate = (float) PHPExcel_Calculation_Functions::flattenSingleValue($rate);
+	        $pr = (float) PHPExcel_Calculation_Functions::flattenSingleValue($pr);
+	        $redemption = (float) PHPExcel_Calculation_Functions::flattenSingleValue($redemption);
+	        $frequency = (int) PHPExcel_Calculation_Functions::flattenSingleValue($frequency);
+	        $basis = (is_null($basis)) ? 0 : (int) PHPExcel_Calculation_Functions::flattenSingleValue($basis);
+
+	        $prN = 0.0;
+	        $fYield1 = 0.0;
+	        $fYield2 = 1.0;
+	        $pr1 = self::PRICE($settlement, $maturity, $rate, $fYield1, $redemption, $frequency, $basis);
+	        $pr2 = self::PRICE($settlement, $maturity, $rate, $fYield2, $redemption, $frequency, $basis);
+	        $fYieldN = ( $fYield2 - $fYield1 ) * 0.5;
+	        for ($nIter = 0; $nIter < 100 && $prN != $pr && (abs($prN-$pr)/$pr)>0.0001; $nIter++) {
+	            $prN = self::PRICE($settlement, $maturity, $rate, $fYieldN, $redemption, $frequency, $basis);
+	            if ($pr == $pr1)
+	                return $fYield1;
+	            else if ($pr == $pr2)
+	                return $fYield2;
+	            else if ($pr == $prN)
+	                return $fYieldN;
+	            else if ($pr < $pr2) {
+	                $fYield2 *= 2.0;
+	                $pr2 = self::PRICE($settlement, $maturity, $rate, $fYield2, $redemption, $frequency, $basis);
+	                $fYieldN = ( $fYield2 - $fYield1 ) * 0.5;
+	            } else {
+	                if ($pr < $prN) {
+	                    $fYield1 = $fYieldN;
+	                    $pr1 = $prN;
+	                } else {
+	                    $fYield2 = $fYieldN;
+	                    $pr2 = $prN;
+	                }
+	                $fYieldN = $fYield2 - ( $fYield2 - $fYield1 ) * ( ( $pr - $pr2 ) / ( $pr1 - $pr2 ) );
+	            }
+	        }
+	        return $fYieldN;
+	}
 
 
 	/**
